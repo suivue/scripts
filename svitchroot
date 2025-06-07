@@ -9,8 +9,8 @@
 usage() {
 #        echo 'Arguments passed: "$#", required 2'
         echo 'Usage:'
-        printf '\t[sudo] newb_chroot <device> <mount_point>\n'
-        printf '\te.g., sudo newb_chroot /dev/sdb2 /mnt/bootstrap\n'
+        printf '\t[sudo] svitchroot <device> <mount_point>\n'
+        printf '\te.g., sudo svitchroot /dev/sdb2 /mnt/bootstrap\n'
 }
 
 mount_efi() {
@@ -87,7 +87,7 @@ switch_root
 # i.e., with `--norc` option.
 # export PS1="\[\033[0;32m\](chroot)\[\033[0m\\]\w\$ "  # does not work
 # export PS1="(chroot) $PS1" chroot $mp  # does not work
-# Following works:
+# Following works (thanks to user 'seth' from ArchLinux forum:
 # chroot $mp \
 #       bash -c 'export PS1="\[\033[0;32m\](chroot) \[\033[0m\\]\u@\w# ";\
 #       bash --norc'
