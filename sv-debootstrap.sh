@@ -47,7 +47,7 @@ mkrawimg() {
         ) | fdisk $HOME/VirtualMachines/${relname}.raw
         
         # Create loop-devices using `kpartx`
-        sudo kpartx -a -v ${relname}.raw 
+        sudo kpartx -a -v $HOME/VirtualMachines/${relname}.raw 
 #        losetup 
 #        ls /dev/mapper/
 
@@ -80,8 +80,10 @@ switch_root() {
         cat /etc/resolv.conf > $mp/run/systemd/resolve/stub-resolv.conf
 
         if [ ! -f "minstalldebu.sh" ]; then
-                curl -fO https://raw.githubusercontent.com/suivue/scripts/minstalldebu.sh
+                curl -fO https://raw.githubusercontent.com/suivue/scripts/refs/heads/main/minstalldebu.sh
         fi
+        
+        chmod +x minstalldebu.sh
         sudo mv minstalldebu.sh $mp/usr/local/bin/
         sudo chroot $mp bash -c 'minstalldebu.sh;bash'
 }

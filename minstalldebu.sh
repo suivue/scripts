@@ -11,19 +11,22 @@ export PS1="(chroot) $PS1"
 export DEBIAN_FRONTEND=noninteractive
 
 # Add/update sources.list entry
-if [ "$(cat /etc/os-release | grep '^ID=' | cut -d"=" -f2)" == "debian" ]
+distro=$(cat /etc/os-release | grep '^ID=' | cut -d"=" -f2)
+relname=$(cat /etc/os-release | grep 'CODENAME' | cut -d"=" -f2)
+
+if [ "$distro" == "debian" ]
 then
-        cat << EOF > /etc/apt/sources.list
-        deb http://deb.debian.org/debian $relname main contrib non-free non-free-firmware
-        deb http://security.debian.org/debian-security $relname-security main contrib non-free non-free-firmware
-        deb http://deb.debian.org/debian $relname-updates main contrib non-free non-free-firmware
+cat << EOF > /etc/apt/sources.list
+deb http://deb.debian.org/debian $relname main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security $relname-security main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian $relname-updates main contrib non-free non-free-firmware
 EOF
-elif [ "$(cat /etc/os-release | grep '^ID=' | cut -d"=" -f2)" == "ubuntu" ]
+elif [ "$distro" == "ubuntu" ]
 then
-        cat << EOF > /etc/apt/sources.list
-        deb http://archive.ubuntu.com/ubuntu/ $relname main restricted universe multiverse
-        deb http://archive.ubuntu.com/ubuntu/ $relname-security restricted universe multiverse
-        deb http://archive.ubuntu.com/ubuntu/ $relname-updates restricted universe multiverse
+cat << EOF > /etc/apt/sources.list
+deb http://archive.ubuntu.com/ubuntu/ $relname main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ $relname-security restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ $relname-updates restricted universe multiverse
 EOF
 fi
 
@@ -58,13 +61,16 @@ EOF
 
 echo $relname > /etc/hostname
 # Add user for reqular use.
-useradd -m -G adm,cdrom,sudo,dip,plugdev -s /bin/bash username
-passwd username
+useradd -m -G adm,cdrom,sudo,dip,plugdev -s /bin/bash $distro
+passwd $distro
 # optionally remove proxy configuration if set before
 # rm /etc/apt/apt.conf.d/99proxy
 
 # passwd for root
+printf "\nSetting password for root\n"
 passwd
+
+rm /usr/local/bin/minstalldebu.sh
 
 # Installation of a minimal/usable debian/ubuntu vm is done at this
 # stage. Continue to use or exit.
