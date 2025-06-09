@@ -5,14 +5,17 @@
 # minimal base system in order to install kernel and other essential sw.
 #
 
+sleep 10
+
 # Once the minimal base system is installed chroot into it and install
 # kernel and bootloader as a minimum.
-export PS1="(chroot) $PS1"
+export PS1="(chroot) \u@\h:\w # "
 export DEBIAN_FRONTEND=noninteractive
 
 # Add/update sources.list entry
 distro=$(cat /etc/os-release | grep '^ID=' | cut -d"=" -f2)
 relname=$(cat /etc/os-release | grep 'CODENAME' | cut -d"=" -f2)
+loopN=$(losetup | awk 'NR==2 { print $1}' | cut -d'/' -f3)
 
 if [ "$distro" == "debian" ]
 then
@@ -47,7 +50,7 @@ update-grub
 
 # Install any other software you desire to have on a minimal environment.
 #
-apt-get install bash-completion file nano network-manager
+apt-get install bash-completion file nano network-manager -y
 # Desktop-environment if needed; There should be a '^' at the end as per
 # instruction on the referenced source.
 #apt-get install ubuntu-mate-desktop^
@@ -59,16 +62,16 @@ cat << EOF > /etc/NetworkManager/conf.d/01-nm-manage.conf
 unmanaged-devices=none
 EOF
 
-echo $relname > /etc/hostname
-# Add user for reqular use.
-useradd -m -G adm,cdrom,sudo,dip,plugdev -s /bin/bash $distro
-passwd $distro
-# optionally remove proxy configuration if set before
-# rm /etc/apt/apt.conf.d/99proxy
-
 # passwd for root
 printf "\nSetting password for root\n"
 passwd
+
+echo $relname > /etc/hostname
+# Add user for reqular use.
+#useradd -m -G adm,cdrom,sudo,dip,plugdev -s /bin/bash $distro
+#passwd $distro
+# optionally remove proxy configuration if set before
+# rm /etc/apt/apt.conf.d/99proxy
 
 rm /usr/local/bin/minstalldebu.sh
 

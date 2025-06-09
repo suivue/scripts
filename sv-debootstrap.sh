@@ -77,7 +77,7 @@ switch_root() {
         sudo mount --bind /proc $mp/proc
         sudo mount --bind /sys $mp/sys
         sudo mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
-        cat /etc/resolv.conf > $mp/run/systemd/resolve/stub-resolv.conf
+        cat /etc/resolv.conf > $mp/etc/resolv.conf
 
         if [ ! -f "minstalldebu.sh" ]; then
                 curl -fO https://raw.githubusercontent.com/suivue/scripts/refs/heads/main/minstalldebu.sh
