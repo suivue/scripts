@@ -16,35 +16,35 @@ mount_root() {
         read mp
         #fs=$1
         #mp=$2
-        sudo mount $fs $mp
+        mount $fs $mp
 }
 
 mount_efi() {
         # select menu does not work in sh; it is a bash/ksh feature
         PS3="Select an EFI partition: "
-        select efipart in $(sudo fdisk -l | grep 'EFI System' | awk '{print $1}')
+        select efipart in $(fdisk -l | grep 'EFI System' | awk '{print $1}')
         do
-        	sudo mount $efipart $mp/boot/efi
+        	mount $efipart $mp/boot/efi
         	break
         done
 }
 
 mount_others() {
         # bind mount other essential partitions for chroot
-        sudo mount --bind /dev $mp/dev
-        sudo mount --bind /proc $mp/proc
-        sudo mount --bind /sys $mp/sys
-        sudo mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
+        mount --bind /dev $mp/dev
+        mount --bind /proc $mp/proc
+        mount --bind /sys $mp/sys
+        mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
 
         if [ -f "$mp/run/systemd/resolve/stub-resolv.conf" ]; then
-                sudo cp /etc/resolv.conf $mp/run/systemd/resolve/stub-resolv.conf
+                cat /etc/resolv.conf > $mp/run/systemd/resolve/stub-resolv.conf
         else
-                sudo cp /etc/resolv.conf $mp/etc/resolv.conf
+                cat /etc/resolv.conf > $mp/etc/resolv.conf
         fi
 }
 
 switch_root() {
-        sudo chroot $mp \
+        chroot $mp \
         bash -c 'export PS1="\[\033[0;32m\](chroot) \[\033[0m\\]\u@\w# ";\
         bash --norc'
 }

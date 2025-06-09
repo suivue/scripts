@@ -97,7 +97,7 @@ cleanexit() {
 mkrawimg
 # Now call any function that needs root/sudo permission
 # Install debootstrap if not installed
-sudo apt-get -y install debootstrap kpartx qemu-kvm 
+sudo apt-get -y install debootstrap kpartx qemu-system-x86 
 fmtrawimg
 boot_strap
 switch_root
