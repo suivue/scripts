@@ -1,0 +1,79 @@
+#! /bin/bash
+#
+# rundebuc - run debian/ubuntu container (created using bootstrap method).
+# This is (sort of) my version of lxc.
+#
+# I know, there's too much comments. It is more for me as self notes,
+# than for others!
+#
+# - sv
+#
+
+# This is where I place my 'debootstrap'ped images. Adjust as needed.
+#
+imagedir=$HOME/VirtualMachines
+
+prepare() {
+        PS3="Select an image to run: "
+        select image in $(ls $imagedir)
+        do
+                mkdir /run/user/$UID/$image && mp=$_
+                mkdir -p $mp/boot/efi
+                break
+        done
+        # Create loop-devices using `kpartx`
+        sudo kpartx -a -v $imagedir/$image
+
+        # we will use this loop device numbering later for mounts
+        loopN=$(losetup | awk 'NR==2 {print $1}' | cut -d'/' -f3)
+}
+
+switch_root() {
+        # mount root and efi
+        sudo mount /dev/mapper/${loopN}p2 $mp/
+        sudo mount /dev/mapper/${loopN}p1 $mp/boot/efi/
+
+        # mount other essential directories
+        sudo mount --bind /dev $mp/dev
+        sudo mount -t devpts none $mp/dev/pts
+        sudo mount --bind /proc $mp/proc
+        sudo mount --bind /sys $mp/sys
+        sudo mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
+        
+        # copy 'resolv.conf' so we have networking inside chroot
+        if [ -f "$mp/run/systemd/resolve/stub-resolv.conf" ]; then
+                sudo cp /etc/resolv.conf $mp/run/systemd/resolve/stub-resolv.conf
+        else
+                sudo cp /etc/resolv.conf $mp/etc/resolv.conf
+        fi
+
+        # finally chroot into our container
+        sudo chroot $mp
+}
+
+cleanup() {
+       sudo umount -R $mp
+       rm -rf $mp
+       sudo kpartx -d -v $imagedir/$image
+}
+
+prepare
+switch_root
+cleanup
+
+# Note (to self):
+#
+# Following does not work with '/bin/sh' because apparently it does not
+# expand $UID (?!).
+#
+#if [ -z $1 ]; then
+#        echo "Usage: rundebuc <imagefile>"
+##        printf "Image directory: %s\n" "$imagedir"
+#        echo "Available images are:"
+#        ls $imagedir
+#        exit
+#else
+#        image=$1
+#        mkdir "/run/user/$UID/$image" && mp=$_
+#        mkdir -p $mp/boot/efi
+#fi

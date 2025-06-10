@@ -1,0 +1,34 @@
+#! /bin/bash
+#
+# rundebuvm - run debian/ubuntu vm (using qemu-kvm)
+#
+# -sv
+#
+
+# This is where I keep my 'debootstrap'ped containers. Adjust as needed.
+#
+imagedir=$HOME/VirtualMachines
+
+PS3="Select VM to run: "
+select vm in $(ls $imagedir)
+do
+        qemu-system-x86_64 \
+                -machine type=q35 \
+                -bios "/usr/share/ovmf/OVMF.fd" \
+                -boot menu=on \
+                -enable-kvm \
+                -m 3G \
+                -smp 2 \
+                -cpu host \
+                -display sdl,gl=on \
+                -vga virtio \
+                -drive file=$imagedir/$vm &
+        break
+done
+
+
+# Notes (to self):
+#
+# without 'break' or 'exit' in select menu, it will an indefinite loop
+# if using 'raw' image, use "-drive format=raw,file=$vm"
+#
