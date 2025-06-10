@@ -2,22 +2,47 @@
 #
 # Bootstrap a debian/ubuntu distribution
 #
-# debootstrap commands
-# debootstrap --arch=amd64 SUITE TARGETDIR MIRROR
-# SUITE: one of the Debian/Ubuntu release code names
-#        e.g., bullseye, focal, impish etc
-# MIRROR: package repository URL http://httpredir.debian.org/debian,
-#         http://archive.ubuntu.com/ubuntu
-# e.g.,  sudo debootstrap --arch=amd64 stretch \
-#                /var/lib/container-example/example1 \
-#                http://httpredir.debian.org/debian
-#
 # Following is based on instructions from Ubuntu MATE forums.
-# Source: 
+# Source:
 # https://ubuntu-mate.community/t/installing-ubuntu-mate-using-debootstrap/23780
 
-printf "Enter distribution (code) name (e.g., bookworm, trixie, noble, questing etc.): "
-read relname
+PS3="Select a base: "
+select base in debian ubuntu
+do
+		read -p "Enter release name (e.g., bookworm, trixie, noble, questing etc.): " relname
+        case $base in
+                "debian")
+                        if [ -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
+                                if [ ! -e "/usr/share/debootstrap/scripts/$relname" ]; then
+                                        cd /usr/share/debootstrap/scripts
+                                        sudo ln -s sid $relname
+                                fi
+                                break
+                        else
+                                echo "Keyring file '/usr/share/keyrings/debian-archive-keyring.gpg' not found"
+                                echo "Please install it to be able to bootstrap a debian image. Quitting..."
+                                exit
+                        fi
+                        ;;
+                "ubuntu")
+                        if [ -f "/usr/share/keyrings/ubuntu-archive-keyring.gpg" ]; then
+                                if [ ! -e "/usr/share/debootstrap/scripts/$relname" ]; then
+                                        cd /usr/share/debootstrap/scripts
+                                        sudo ln -s gutsy $relname
+                                fi
+                                break
+                        else
+                                echo "Keyring file '/usr/share/keyrings/ubuntu-archive-keyring.gpg' not found"
+                                echo "Please install it to be able to bootstrap an ubuntu image. Quitting..."
+                                exit
+                        fi
+                        ;;
+                *)
+                        echo "Invalid choice. Enter 1 or 2."
+                        ;;
+        esac
+done
+
 #relname="trixie"
 
 mkrawimg() {
@@ -28,7 +53,7 @@ mkrawimg() {
         fi
 
         fallocate -l 16G $HOME/VirtualMachines/${relname}.raw
-        
+
         # Create partitions.
         #
         (
@@ -45,10 +70,10 @@ mkrawimg() {
                 echo      # last sector; set all remaining space
                 echo w    # write changes
         ) | fdisk $HOME/VirtualMachines/${relname}.raw
-        
+
         # Create loop-devices using `kpartx`
-        sudo kpartx -a -v $HOME/VirtualMachines/${relname}.raw 
-#        losetup 
+        sudo kpartx -a -v $HOME/VirtualMachines/${relname}.raw
+#        losetup
 #        ls /dev/mapper/
 
         # Check the loop device number
@@ -67,7 +92,7 @@ boot_strap() {
         sudo mount /dev/mapper/${loopN}p2 $mp/
         sudo mkdir -p $mp/boot/efi
         sudo mount /dev/mapper/${loopN}p1 $mp/boot/efi/
-        
+
         # Run `debootstrap` command inside newly created file-system.
         sudo debootstrap --variant=minbase --arch=amd64 $relname $mp/
 }
@@ -86,7 +111,7 @@ switch_root() {
 }
 
 unmount_all() {
-       #sudo umount $mp/{dev,proc,sys} 
+       #sudo umount $mp/{dev,proc,sys}
        sudo umount -R $mp
        sudo kpartx -d -v $HOME/VirtualMachines/${relname}.raw
 }

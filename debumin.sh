@@ -13,7 +13,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Add/update sources.list entry
 #
 distro=$(cat /etc/os-release | grep '^ID=' | cut -d"=" -f2)
-relname=$(cat /etc/os-release | grep 'CODENAME' | cut -d"=" -f2)
+relname=$(cat /etc/os-release | grep 'VERSION_CODENAME' | cut -d"=" -f2)
 loopN=$(losetup | awk 'NR==2 { print $1}' | cut -d'/' -f3)
 
 if [[ "$distro" == "debian" ]]; then
