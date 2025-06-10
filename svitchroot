@@ -31,9 +31,14 @@ mount_efi() {
 
 mount_others() {
         # bind mount other essential partitions for chroot
-        sudo mount --bind /dev $mp/dev
-        sudo mount --bind /proc $mp/proc
-        sudo mount --bind /sys $mp/sys
+        #sudo mount --bind /dev $mp/dev
+        #sudo mount --bind /proc $mp/proc
+        #sudo mount --bind /sys $mp/sys
+        # Taken from susestrap
+        sudo mount -t devtmpfs devtmpfs $mp/dev
+        sudo mount -t devpts devpts $mp/dev/pts
+        sudo mount -t proc proc $mp/proc
+        sudo mount -t sysfs sysfs $mp/sys
         sudo mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
 
         if [ -f "$mp/run/systemd/resolve/stub-resolv.conf" ]; then
