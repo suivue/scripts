@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# kwikemu - kwik emulator, my version of 'quickemu' :)
+#   - uses only 'qemu/kvm' comands.
+#   - focus is only GNU/Linux and BSD
+#
+# - SV
+#
+
+# This is where I keep my VMs and 'debootstrap'ped containers.
+# Adjust as needed.
+#
+imagedir="$HOME/VirtualMachines"
+
+if [ ! -d "$imagedir" ]; then
+        mkdir -p "$imagedir"
+fi
+
+# Common options to pass to qemu command.
+# TODO: Add options related to audio, network, usb-redirection.
+#
+options=("-boot menu=on" "-cpu host" "-display sdl,gl=on" "-enable-kvm" "-m 3072" "-smp 2" "-vga std") 
+
+# Keep track of which vm uses MBR-BIOS and which one uses UEFI.
+#
+bios=("freebsd.qcow2" "openbsd.qcow2")
+uefi=("questing.qcow2" "questing.raw" "trixie.raw")
+
+create() {
+        read -p "VM name: " vmname
+        vm=${vmname}.qcow2
+        filename="$imagedir/$vm"
+        # TODO: make size input like in fdisk/cfdisk etc
+        read -p "VM size (in GB, provide only number): " vmsize
+        vmsize=${vmsize}G
+        read -p "ISO file (provide full path): " iso
+        read -p "Select mode (bios or uefi): " mode
+        case $mode in
+                bios)
+                        bios+=("$vm") ;;
+                uefi)
+                        uefi+=("$vm")
+                        options+=("-machine type=q35" "-bios /usr/share/ovmf/OVMF.fd") ;;
+                *)
+                        echo "Invalid choice." ;;
+        esac
+
+        if [ ! -f "$filename" ]; then
+                qemu-img create -f qcow2 $filename $vmsize
+        fi
+
+        options+=("-cdrom $iso")
+        qemu-system-x86_64 ${options[@]} -drive file="$filename"
+}
+
+run() {
+        PS3="Select VM to run: "
+        select vm in $(ls "$imagedir")
+        do
+                if printf "%s\n" "${bios[@]}" | grep -Fxq "$vm"; then
+                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$vm" &
+                elif printf "%s\n" "${uefi[@]}" | grep -Fxq "$vm"; then
+                        options+=("-machine type=q35" "-bios /usr/share/ovmf/OVMF.fd")
+                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$vm" &
+                fi
+                break
+        done
+}
+
+PS3="Select an option: "
+select choice in create run
+do
+        case $choice in
+                create)
+                        create
+                        break
+                        ;;
+                run)
+                        run
+                        break
+                        ;;
+                *)
+                        echo "Invalid choice"
+                        break
+                        ;;
+        esac
+done
+
+
+# Notes (to self):
+#
+# without 'break' or 'exit' in select menu, it will an indefinite loop
+# if using 'raw' image, use "-drive format=raw,file=$vm"
+# -vga virtio to get very high resolutions
+# "-audiodev pa,id=snd0 -device virtio-sound-pci,audiodev=snd0" gives error
+# saying 'virtio-sound-pci' is not valid device.
+#
+# The "=~" option in `if [[ "$bios[@]" =~ "$vm" ]]; then` is a bashism but
+# really useful.
+#
+# Interesting optios to explore:
+# -device virtio-vga,virgl=on \
+# -device rtl8139,netdev=ethernet.0 \
+# -netdev user,id=ethernet.0,hostfwd=tcp::10022-:22 \
+# -soundhw ac97 \
+#

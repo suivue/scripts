@@ -1,0 +1,223 @@
+#!/bin/bash
+#
+# debuc - debian/ubuntu container(s), my version of lxc :)
+#
+# - sv
+#
+# debootstrap part is based on instructions from Ubuntu MATE forum post. Thanks Norbert_X.
+# Source:
+# https://ubuntu-mate.community/t/installing-ubuntu-mate-using-debootstrap/23780
+
+# Using only the currently supported and (immediately) upcoming releases.
+# Any (other) release can be added to the list as needed.
+#
+
+debianbase=("oldstable" "stable" "testing" "unstable" "sid" "bookworm" "trixie")
+ubuntubase=("jammy" "noble" "plucky" "questing")
+releases=( "${debianbase[@]}" "${ubuntubase[@]}" )
+
+imagedir="$HOME/VirtualMachines"
+images=( $(printf "%s\n" $imagedir/* | grep -i '.raw$' | cut -d'/' -f5) )
+
+
+mkrawimg() {
+        # Allocate space for the virtual disk
+
+        if [ ! -d "$imagedir" ]; then
+                mkdir -p $imagedir
+        fi
+
+        image=${relname}.raw
+
+        fallocate -l 16G $imagedir/${image}
+
+        # Create partitions.
+        #
+        (
+                echo g    # create an empty gpt partition table (default is MBR)
+                echo n    # new partition
+                echo      # partition number (default 1)
+                echo      # first sector
+                echo +1G  # last sector; set 1G but, '+' prefix is required
+                echo t    # change type of first partition
+                echo 1    # change to 1 which is 'EFI System'
+                echo n    # new partition for /
+                echo      # partition number (default 2 now)
+                echo      # first sector
+                echo      # last sector; set all remaining space
+                echo w    # write changes
+        ) | fdisk $imagedir/${image}
+}
+
+fmtrawimg() {
+        # Create loop-devices using `kpartx`
+        sudo kpartx -a -v $imagedir/${image}
+
+        # Check the loop device number
+        loopN=$(losetup | awk 'NR==2 {print $1}' | cut -d'/' -f3)
+        
+        sudo mkfs.vfat -F 32 -n EFI /dev/mapper/${loopN}p1
+        sudo mkfs.ext4 -L System /dev/mapper/${loopN}p2
+}
+
+boot_strap() {
+        # Create mount points for root and efi, usually under /mnt
+        mp=/mnt/bootstrap-target
+        sudo mkdir $mp
+        sudo mount /dev/mapper/${loopN}p2 $mp/
+        sudo mkdir -p $mp/boot/efi
+        sudo mount /dev/mapper/${loopN}p1 $mp/boot/efi/
+
+        # Run `debootstrap` command inside newly created file-system.
+        sudo debootstrap --variant=minbase --arch=amd64 $relname $mp/
+}
+
+switch_root() {
+        # mount other essential directories for chrooting
+        sudo mount --bind /dev $mp/dev
+        sudo mount -t devpts none $mp/dev/pts
+        sudo mount --bind /proc $mp/proc
+        sudo mount --bind /sys $mp/sys
+        sudo mount --bind /sys/firmware/efi/efivars $mp/sys/firmware/efi/efivars
+        
+        # copy 'resolv.conf' so we have networking inside chroot
+        if [ -f "$mp/run/systemd/resolve/stub-resolv.conf" ]; then
+                sudo cp /etc/resolv.conf $mp/run/systemd/resolve/stub-resolv.conf
+        else
+                sudo cp /etc/resolv.conf $mp/etc/resolv.conf
+        fi
+
+        if [ "$1" == "debumin" ]; then
+                # get the 'debumin' script to run inside chroot environment
+                curl -fO https://raw.githubusercontent.com/suivue/scripts/refs/heads/main/debumin
+                chmod +x debumin
+                sudo mv debumin $mp/usr/local/bin/
+                sudo chroot $mp bash -c 'debumin;bash'
+        else
+                sudo chroot $mp
+        fi
+}
+
+prebstrap() {
+        # Install debootstrap if not installed
+        sudo apt-get install debootstrap kpartx qemu-system-x86 -y
+        
+        select base in debian ubuntu
+        do
+                case $base in
+                        "debian")
+                                if [ -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
+                                        if [ ! -e "/usr/share/debootstrap/scripts/$relname" ]; then
+                                                cd /usr/share/debootstrap/scripts
+                                                sudo ln -s sid $relname
+                                        fi
+                                        break
+                                else
+                                        echo "Keyring file '/usr/share/keyrings/debian-archive-keyring.gpg' not found"
+                                        echo "Please install it to be able to bootstrap a debian image. Quitting..."
+                                        exit
+                                fi
+                                ;;
+                        "ubuntu")
+                                if [ -f "/usr/share/keyrings/ubuntu-archive-keyring.gpg" ]; then
+                                        if [ ! -e "/usr/share/debootstrap/scripts/$relname" ]; then
+                                                cd /usr/share/debootstrap/scripts
+                                                sudo ln -s gutsy $relname
+                                        fi
+                                        break
+                                else
+                                        echo "Keyring file '/usr/share/keyrings/ubuntu-archive-keyring.gpg' not found"
+                                        echo "Please install it to be able to bootstrap an ubuntu image. Quitting..."
+                                        exit
+                                fi
+                                ;;
+                        *)
+                                echo "Invalid choice. Enter 1 or 2."
+                                ;;
+                esac
+        done
+} 
+
+prerun() {
+        PS3="Select an image to run: "
+        select image in ${images[@]}
+        do
+                mkdir /run/user/$(id -u)/$image && mp=$_
+                mkdir -p $mp/boot/efi
+                break
+        done
+        # Create loop-devices using `kpartx`
+        sudo kpartx -a -v $imagedir/$image
+
+        # we will use this loop device numbering later for mounts
+        loopN=$(losetup | awk 'NR==2 {print $1}' | cut -d'/' -f3)
+
+        # mount root and efi
+        sudo mount /dev/mapper/${loopN}p2 $mp/
+        sudo mount /dev/mapper/${loopN}p1 $mp/boot/efi/
+}
+
+cleanup() {
+       sudo umount -R $mp
+       sudo rm -rf $mp
+       sudo kpartx -d -v $imagedir/$image
+}
+
+debustrap() {
+        # First create img file (as regular user)
+        mkrawimg
+        # Now we call any functions that my need to be root (or use sudo)
+        prebstrap
+        fmtrawimg
+        boot_strap
+        switch_root minstall
+        cleanup
+}
+
+rundebuc() {
+        prerun
+        switch_root
+        cleanup
+}
+
+
+PS3="Select an option: "
+select choice in create run
+do
+        case $choice in
+                create)
+                        select relname in releases
+                        do
+                                debustrap
+                        done
+                        break
+                        ;;
+                run)
+                        rundebuc
+                        break
+                        ;;
+                *)
+                        echo "Invalid choice"
+                        break
+                        ;;
+        esac
+done
+
+
+# Notes (to self):
+#
+# without 'break' or 'exit' in select menu, it will an indefinite loop
+# if using 'raw' image, use "-drive format=raw,file=$vm"
+# -vga virtio to get very high resolutions
+# "-audiodev pa,id=snd0 -device virtio-sound-pci,audiodev=snd0" gives error
+# saying 'virtio-sound-pci' is not valid device.
+#
+# The "=~" option in `if [[ "$bios[@]" =~ "$vm" ]]; then` is a bashism but
+# really useful.
+#
+# Interesting optios to explore:
+# -device virtio-vga,virgl=on \
+# -device rtl8139,netdev=ethernet.0 \
+# -netdev user,id=ethernet.0,hostfwd=tcp::10022-:22 \
+# -soundhw ac97 \
+#
