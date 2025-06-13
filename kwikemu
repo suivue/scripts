@@ -24,29 +24,31 @@ options=("-boot menu=on" "-cpu host" "-display sdl,gl=on" "-enable-kvm" "-m 3072
 # Keep track of which vm uses MBR-BIOS and which one uses UEFI.
 #
 bios=("freebsd.qcow2" "openbsd.qcow2")
-uefi=("questing.qcow2" "questing.raw" "trixie.raw")
+uefi=("questing.qcow2" "questing.qcow2" "trixie.qcow2" "sid.qcow2")
+images=( $(printf "%s\n" $imagedir/* | grep -i '.qcow2$' | cut -d'/' -f5) )
+#echo "${images[@]}"
 
 create() {
         read -p "VM name: " vmname
-        vm=${vmname}.qcow2
-        filename="$imagedir/$vm"
+        image=${vmname}.qcow2
+        filename="$imagedir/$image"
         # TODO: make size input like in fdisk/cfdisk etc
         read -p "VM size (in GB, provide only number): " vmsize
-        vmsize=${vmsize}G
+        imagesize=${vmsize}G
         read -p "ISO file (provide full path): " iso
         read -p "Select mode (bios or uefi): " mode
         case $mode in
                 bios)
-                        bios+=("$vm") ;;
+                        bios+=("$image") ;;
                 uefi)
-                        uefi+=("$vm")
+                        uefi+=("$image")
                         options+=("-machine type=q35" "-bios /usr/share/ovmf/OVMF.fd") ;;
                 *)
                         echo "Invalid choice." ;;
         esac
 
         if [ ! -f "$filename" ]; then
-                qemu-img create -f qcow2 $filename $vmsize
+                qemu-img create -f qcow2 $filename $imagesize
         fi
 
         options+=("-cdrom $iso")
@@ -55,13 +57,13 @@ create() {
 
 run() {
         PS3="Select VM to run: "
-        select vm in $(ls "$imagedir")
+        select image in "${images[@]}"
         do
-                if printf "%s\n" "${bios[@]}" | grep -Fxq "$vm"; then
-                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$vm" &
-                elif printf "%s\n" "${uefi[@]}" | grep -Fxq "$vm"; then
+                if printf "%s\n" "${bios[@]}" | grep -Fxq "$image"; then
+                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$image" &
+                elif printf "%s\n" "${uefi[@]}" | grep -Fxq "$image"; then
                         options+=("-machine type=q35" "-bios /usr/share/ovmf/OVMF.fd")
-                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$vm" &
+                        qemu-system-x86_64 ${options[@]} -drive file="$imagedir/$image" &
                 fi
                 break
         done
@@ -90,12 +92,12 @@ done
 # Notes (to self):
 #
 # without 'break' or 'exit' in select menu, it will an indefinite loop
-# if using 'raw' image, use "-drive format=raw,file=$vm"
+# if using 'raw' image, use "-drive format=raw,file=$image"
 # -vga virtio to get very high resolutions
 # "-audiodev pa,id=snd0 -device virtio-sound-pci,audiodev=snd0" gives error
 # saying 'virtio-sound-pci' is not valid device.
 #
-# The "=~" option in `if [[ "$bios[@]" =~ "$vm" ]]; then` is a bashism but
+# The "=~" option in `if [[ "$bios[@]" =~ "$image" ]]; then` is a bashism but
 # really useful.
 #
 # Interesting optios to explore:

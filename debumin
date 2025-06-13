@@ -91,7 +91,7 @@ passwd
 # optionally remove proxy configuration if set before
 # rm /etc/apt/apt.conf.d/99proxy
 
-rm /usr/local/bin/debumin.sh
+rm /usr/local/bin/debumin
 
 printf "Installation of a minimal/usable debian/ubuntu vm is done "
 printf "at this stage. Continue to use or exit.\n"

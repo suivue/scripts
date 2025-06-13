@@ -87,7 +87,7 @@ switch_root() {
                 sudo cp /etc/resolv.conf $mp/etc/resolv.conf
         fi
 
-        if [ "$1" == "debumin" ]; then
+        if [ "$1" == "minstall" ]; then
                 # get the 'debumin' script to run inside chroot environment
                 curl -fO https://raw.githubusercontent.com/suivue/scripts/refs/heads/main/debumin
                 chmod +x debumin
@@ -186,7 +186,7 @@ select choice in create run
 do
         case $choice in
                 create)
-                        select relname in releases
+                        select relname in "${releases[@]}"
                         do
                                 debustrap
                         done
@@ -201,6 +201,8 @@ do
                         break
                         ;;
         esac
+
+        exit
 done
 
 
