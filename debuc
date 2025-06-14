@@ -54,7 +54,7 @@ fmtrawimg() {
         sudo kpartx -a -v $imagedir/${image}
 
         # Check the loop device number
-        loopN=$(losetup | awk 'NR==2 {print $1}' | cut -d'/' -f3)
+        loopN=$(losetup | grep -i $image | awk '{print $1}' | cut -d'/' -f3)
         
         sudo mkfs.vfat -F 32 -n EFI /dev/mapper/${loopN}p1
         sudo mkfs.ext4 -L System /dev/mapper/${loopN}p2
@@ -150,7 +150,7 @@ prerun() {
         sudo kpartx -a -v $imagedir/$image
 
         # we will use this loop device numbering later for mounts
-        loopN=$(losetup | awk 'NR==2 {print $1}' | cut -d'/' -f3)
+        loopN=$(losetup | grep -i $image | awk '{print $1}' | cut -d'/' -f3)
 
         # mount root and efi
         sudo mount /dev/mapper/${loopN}p2 $mp/
